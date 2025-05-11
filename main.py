@@ -17,14 +17,42 @@ class Gasto(BaseModel):
 
 @app.post("/registro-gasto")
 def registrar_gasto(gasto: Gasto):
-    # Usar fecha actual si no se proporciona
-    if gasto.fecha:
-        try:
-            fecha = datetime.strptime(gasto.fecha, "%d/%m/%Y").date()
-        except ValueError:
-            fecha = date.today()
-    else:
-        fecha = date.today()
+    try:
+        descripcion = gasto.descripcion
+        monto = gasto.monto
+        fecha = gasto.fecha or date.today()
+        categoria = "Otros"
+
+        for palabra, cat in categorias.items():
+            if palabra in descripcion.lower():
+                categoria = cat
+                break
+
+        # Conexión con Google Sheets
+        credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
+        client = gspread.authorize(creds)
+
+        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
+        worksheet = sheet.worksheet("Movimientos")
+
+        fila = [fecha, descripcion, categoria, float(monto)]
+        worksheet.append_row(fila, value_input_option="USER_ENTERED")
+
+        return {
+            "status": "ok",
+            "data": [
+                fecha.strftime("%d/%m/%Y"),
+                descripcion,
+                categoria,
+                float(monto)
+            ]
+        }
+
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
 
     descripcion = gasto.descripcion
     monto = gasto.monto
