@@ -65,4 +65,12 @@ def registrar_gasto(gasto: Gasto):
     fila = [fecha, descripcion, categoria, float(monto)]
     worksheet.append_row(fila, value_input_option="USER_ENTERED")
 
-    return {"status": "ok", "data": fila}
+    return {
+    "status": "ok",
+    "data": [
+        fecha.strftime("%d/%m/%Y"),
+        descripcion,
+        categoria,
+        float(monto)
+    ]
+}
