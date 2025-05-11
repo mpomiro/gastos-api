@@ -1,7 +1,7 @@
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, date
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import re
@@ -17,12 +17,19 @@ class Gasto(BaseModel):
 
 @app.post("/registro-gasto")
 def registrar_gasto(gasto: Gasto):
-    # Fecha actual si no viene
-    fecha = gasto.fecha if gasto.fecha else datetime.today().strftime('%d/%m/%Y')
+    # Usar fecha actual si no se proporciona
+    if gasto.fecha:
+        try:
+            fecha = datetime.strptime(gasto.fecha, "%d/%m/%Y").date()
+        except ValueError:
+            fecha = date.today()
+    else:
+        fecha = date.today()
+
     descripcion = gasto.descripcion
     monto = gasto.monto
 
-    # Clasificación automática
+    # Clasificación automática por palabras clave
     categorias = {
         'comida': 'Comida diaria',
         'vianda': 'Comida diaria',
@@ -44,17 +51,18 @@ def registrar_gasto(gasto: Gasto):
             categoria = cat
             break
 
-    # Autenticación Google Sheets
+    # Conexión con Google Sheets
     credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
-    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
     client = gspread.authorize(creds)
 
-    # Abrir hoja
+    # Abrir la hoja
     sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
     worksheet = sheet.worksheet("Movimientos")
 
+    # Registrar la fila
     fila = [fecha, descripcion, categoria, float(monto)]
-    worksheet.append_row(fila)
+    worksheet.append_row(fila, value_input_option="USER_ENTERED")
 
     return {"status": "ok", "data": fila}
