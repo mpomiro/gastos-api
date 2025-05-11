@@ -54,7 +54,7 @@ def registrar_gasto(gasto: Gasto):
     sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
     worksheet = sheet.worksheet("Movimientos")
 
-    fila = [fecha, descripcion, categoria, str(monto)]
+    fila = [fecha, descripcion, categoria, float(monto)]
     worksheet.append_row(fila)
 
     return {"status": "ok", "data": fila}
