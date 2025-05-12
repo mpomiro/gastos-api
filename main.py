@@ -125,6 +125,6 @@ def conectar_hoja(nombre_hoja):
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
     client = gspread.authorize(creds)
-    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
+    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1_WxcW9ByLABZsppABJb9mD7711KOSbbm6YHGP-fx-aA/edit")
     return sheet.worksheet(nombre_hoja)
 
