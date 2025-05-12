@@ -77,3 +77,54 @@ async def registrar_gasto(request: Request):
         "status": "ok",
         "data": fila
     }
+
+from pydantic import BaseModel
+
+class Ingreso(BaseModel):
+    descripcion: str
+    monto: float
+    fuente: str
+    cuenta: str
+    fecha: str = None
+
+@app.post("/registro-ingreso")
+def registrar_ingreso(ingreso: Ingreso):
+    fecha = ingreso.fecha or datetime.today().strftime('%d/%m/%Y')
+    fila = [fecha, ingreso.descripcion, ingreso.monto, ingreso.fuente, ingreso.cuenta]
+
+    hoja = conectar_hoja("Ingresos")
+    hoja.append_row(fila, value_input_option="USER_ENTERED")
+
+    return {"status": "ok", "data": fila}
+
+class Saldo(BaseModel):
+    cuenta: str
+    saldo: float
+    tipo: str
+    moneda: str
+    fecha: str = None
+
+@app.post("/actualizar-saldo")
+def actualizar_saldo(saldo: Saldo):
+    fecha = saldo.fecha or datetime.today().strftime('%d/%m/%Y')
+    fila = [saldo.cuenta, saldo.saldo, saldo.tipo, saldo.moneda, fecha]
+
+    hoja = conectar_hoja("Saldos")
+    cuentas = hoja.col_values(1)
+
+    try:
+        idx = cuentas.index(saldo.cuenta) + 1  # +1 porque Sheets empieza en 1
+        hoja.update(f'A{idx}:E{idx}', [fila])
+        return {"status": "actualizado", "data": fila}
+    except ValueError:
+        hoja.append_row(fila, value_input_option="USER_ENTERED")
+        return {"status": "agregado", "data": fila}
+
+def conectar_hoja(nombre_hoja):
+    credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
+    client = gspread.authorize(creds)
+    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
+    return sheet.worksheet(nombre_hoja)
+
