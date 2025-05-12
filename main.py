@@ -65,8 +65,8 @@ async def registrar_gasto(request: Request):
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
     client = gspread.authorize(creds)
 
-    # Abrir hoja
-    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1pmChlg5qv3TWx2yN8M_KONPCK2M4kybOamKsv6RWYzs/edit")
+    # Abrir hojap
+    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1_WxcW9ByLABZsppABJb9mD7711KOSbbm6YHGP-fx-aA/edit?gid=947002862#gid=947002862")
     worksheet = sheet.worksheet("Movimientos")
 
     # Registrar
