@@ -1,10 +1,14 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from datetime import datetime
 import json
 import os
 import gspread
+import requests
+import openai
 from oauth2client.service_account import ServiceAccountCredentials
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -33,17 +37,25 @@ categorias = {
     'birra': 'Fútbol'
 }
 
+# Conexión con Google Sheets
+def conectar_hoja(nombre_hoja):
+    credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
+    client = gspread.authorize(creds)
+    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1_WxcW9ByLABZsppABJb9mD7711KOSbbm6YHGP-fx-aA/edit")
+    return sheet.worksheet(nombre_hoja)
+
 @app.post("/registro-gasto")
 async def registrar_gasto(request: Request):
     body = await request.json()
     descripcion = body.get("descripcion")
     monto = body.get("monto")
-    fecha_raw = body.get("fecha")  # Puede ser None
+    fecha_raw = body.get("fecha")
 
     if not descripcion or not monto:
         return {"error": "Faltan datos requeridos: descripción o monto."}
 
-    # Si no se proporciona fecha, usar fecha actual
     if fecha_raw:
         try:
             fecha = datetime.strptime(fecha_raw, "%d/%m/%Y")
@@ -52,33 +64,17 @@ async def registrar_gasto(request: Request):
     else:
         fecha = datetime.today()
 
-    # Categoría automática
     categoria = "Otros"
     for palabra, cat in categorias.items():
         if palabra in descripcion.lower():
             categoria = cat
             break
 
-    # Conexión a Google Sheets
-    credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
-    client = gspread.authorize(creds)
-
-    # Abrir hojap
-    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1_WxcW9ByLABZsppABJb9mD7711KOSbbm6YHGP-fx-aA/edit?gid=947002862#gid=947002862")
-    worksheet = sheet.worksheet("Movimientos")
-
-    # Registrar
+    worksheet = conectar_hoja("Movimientos")
     fila = [fecha.strftime("%d/%m/%Y"), descripcion, categoria, float(monto)]
     worksheet.append_row(fila, value_input_option="USER_ENTERED")
 
-    return {
-        "status": "ok",
-        "data": fila
-    }
-
-from pydantic import BaseModel
+    return {"status": "ok", "data": fila}
 
 class Ingreso(BaseModel):
     descripcion: str
@@ -91,10 +87,8 @@ class Ingreso(BaseModel):
 def registrar_ingreso(ingreso: Ingreso):
     fecha = ingreso.fecha or datetime.today().strftime('%d/%m/%Y')
     fila = [fecha, ingreso.descripcion, ingreso.monto, ingreso.fuente, ingreso.cuenta]
-
     hoja = conectar_hoja("Ingresos")
     hoja.append_row(fila, value_input_option="USER_ENTERED")
-
     return {"status": "ok", "data": fila}
 
 class Saldo(BaseModel):
@@ -108,28 +102,16 @@ class Saldo(BaseModel):
 def actualizar_saldo(saldo: Saldo):
     fecha = saldo.fecha or datetime.today().strftime('%d/%m/%Y')
     fila = [saldo.cuenta, saldo.saldo, saldo.tipo, saldo.moneda, fecha]
-
     hoja = conectar_hoja("Saldos")
     cuentas = hoja.col_values(1)
 
     try:
-        idx = cuentas.index(saldo.cuenta) + 1  # +1 porque Sheets empieza en 1
+        idx = cuentas.index(saldo.cuenta) + 1
         hoja.update(f'A{idx}:E{idx}', [fila])
         return {"status": "actualizado", "data": fila}
     except ValueError:
         hoja.append_row(fila, value_input_option="USER_ENTERED")
         return {"status": "agregado", "data": fila}
-
-def conectar_hoja(nombre_hoja):
-    credentials_json = json.loads(os.environ['GOOGLE_SHEETS_CREDENTIALS'])
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_json, scope)
-    client = gspread.authorize(creds)
-    sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1_WxcW9ByLABZsppABJb9mD7711KOSbbm6YHGP-fx-aA/edit")
-    return sheet.worksheet(nombre_hoja)
-
-from fastapi.responses import Response
-import openai
 
 @app.post("/whatsapp-webhook")
 async def whatsapp_webhook(request: Request):
@@ -140,7 +122,6 @@ async def whatsapp_webhook(request: Request):
     if not mensaje:
         return Response(content="<Response><Message>No se recibió ningún mensaje.</Message></Response>", media_type="application/xml")
 
-    # Procesar con OpenAI
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
     prompt = f"""
