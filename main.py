@@ -115,12 +115,16 @@ def actualizar_saldo(saldo: Saldo):
 
 @app.post("/whatsapp-webhook")
 async def whatsapp_webhook(request: Request):
-    data = await request.form()
-    mensaje = data.get("Body")
-    numero = data.get("From")
+    try:
+        data = await request.form()
+        mensaje = data.get("Body")
+        numero = data.get("From")
 
-    if not mensaje:
-        return Response(content="<Response><Message>No se recibió ningún mensaje.</Message></Response>", media_type="application/xml")
+        print("📩 Mensaje recibido desde WhatsApp:", mensaje)
+        print("📱 Número:", numero)
+
+        if not mensaje:
+            return Response(content="<Response><Message>No se recibió ningún mensaje.</Message></Response>", media_type="application/xml")
 
     openai.api_key = os.environ["OPENAI_API_KEY"]
 
@@ -172,4 +176,6 @@ async def whatsapp_webhook(request: Request):
         media_type="application/xml"
     )
 
-
+ except Exception as e:
+        print("❌ Error en webhook:", str(e))
+        return Response(content=f"<Response><Message>Error interno: {str(e)}</Message></Response>", media_type="application/xml")
