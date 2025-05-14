@@ -144,7 +144,7 @@ async def whatsapp_webhook(request: Request):
         """
 
         completion = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Sos un asistente financiero que transforma texto en JSON."},
                 {"role": "user", "content": prompt}
