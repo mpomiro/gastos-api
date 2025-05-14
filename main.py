@@ -124,58 +124,71 @@ async def whatsapp_webhook(request: Request):
         print("📱 Número:", numero)
 
         if not mensaje:
-            return Response(content="<Response><Message>No se recibió ningún mensaje.</Message></Response>", media_type="application/xml")
+            return Response(
+                content="<Response><Message>No se recibió ningún mensaje.</Message></Response>",
+                media_type="application/xml"
+            )
 
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+        openai.api_key = os.environ["OPENAI_API_KEY"]
 
-    prompt = f"""
-    Clasificá el siguiente mensaje como gasto, ingreso, saldo o tenencia. Devolveme un JSON como este:
-    {{
-      "tipo": "gasto",
-      "data": {{
-        "descripcion": "...",
-        "monto": ...
-      }}
-    }}
-    Mensaje: "{mensaje}"
-    """
+        prompt = f"""
+        Clasificá el siguiente mensaje como gasto, ingreso, saldo o tenencia. Devolveme un JSON como este:
+        {{
+          "tipo": "gasto",
+          "data": {{
+            "descripcion": "...",
+            "monto": ...
+          }}
+        }}
+        Mensaje: "{mensaje}"
+        """
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Sos un asistente financiero que transforma texto en JSON."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+        completion = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Sos un asistente financiero que transforma texto en JSON."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    contenido = completion.choices[0].message["content"]
+        contenido = completion.choices[0].message["content"]
 
-    try:
-        estructura = eval(contenido)
-    except:
-        return Response(content="<Response><Message>No entendí el mensaje.</Message></Response>", media_type="application/xml")
+        try:
+            estructura = eval(contenido)
+        except:
+            return Response(
+                content="<Response><Message>No entendí el mensaje.</Message></Response>",
+                media_type="application/xml"
+            )
 
-    tipo = estructura.get("tipo")
-    datos = estructura.get("data")
+        tipo = estructura.get("tipo")
+        datos = estructura.get("data")
 
-    endpoint_map = {
-        "gasto": "registro-gasto",
-        "ingreso": "registro-ingreso",
-        "saldo": "actualizar-saldo",
-        "tenencia": "actualizar-tenencia"
-    }
+        endpoint_map = {
+            "gasto": "registro-gasto",
+            "ingreso": "registro-ingreso",
+            "saldo": "actualizar-saldo",
+            "tenencia": "actualizar-tenencia"
+        }
 
-    if tipo not in endpoint_map:
-        return Response(content=f"<Response><Message>Tipo no reconocido: {tipo}</Message></Response>", media_type="application/xml")
+        if tipo not in endpoint_map:
+            return Response(
+                content=f"<Response><Message>Tipo no reconocido: {tipo}</Message></Response>",
+                media_type="application/xml"
+            )
 
-    api_url = f"https://gastos-api-xhwa.onrender.com/{endpoint_map[tipo]}"
-    response = requests.post(api_url, json=datos)
+        api_url = f"https://gastos-api-xhwa.onrender.com/{endpoint_map[tipo]}"
+        response = requests.post(api_url, json=datos)
 
-    return Response(
-        content=f"<Response><Message>{tipo.title()} registrado correctamente.</Message></Response>",
-        media_type="application/xml"
-    )
+        return Response(
+            content=f"<Response><Message>{tipo.title()} registrado correctamente.</Message></Response>",
+            media_type="application/xml"
+        )
 
- except Exception as e:
+    except Exception as e:
         print("❌ Error en webhook:", str(e))
-        return Response(content=f"<Response><Message>Error interno: {str(e)}</Message></Response>", media_type="application/xml")
+        return Response(
+            content=f"<Response><Message>Error interno: {str(e)}</Message></Response>",
+            media_type="application/xml"
+        )
+
