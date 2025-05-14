@@ -3,6 +3,6 @@ fastapi
 uvicorn[standard]
 gspread
 oauth2client
-openai
+openai==0.28
 requests
 python-multipart
